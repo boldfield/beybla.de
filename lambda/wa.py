@@ -6,7 +6,6 @@ import json
 import math
 import openpyxl
 import PyPDF2 as pypdf
-import re
 import requests
 import time
 
@@ -15,54 +14,32 @@ from datetime import datetime, tzinfo
 from pprint import pprint
 from io import BytesIO
 
+from constants import (
+    BEYBLADE_S3_BUCKET,
+    BEYBLADE_URL,
+    EPI_DATA_URL,
+    EPI_PREFIX,
+    EPI_DEATHS_WORKSHEET_NAME,
+    EPI_COLUMNS,
+    EPI_COLUMNS_NAME_MAP,
+    EPI_COUNTY_OF_INTEREST,
+    EPI_DEATHS_FNAME_TMPL,
+    BREAKTHROUGH_DATA_PREFIX,
+    BREAKTHROUGH_REPORT_FNAME_TMPL,
+    BREAKTHROUGH_DATA_URL,
+    BREAKTHROUGH_REPORT_DATE_PATTERN,
+    BREAKTHROUGH_DATE_PATTERN,
+    BREAKTHROUGH_CASE_COUNT_PATTERN,
+    BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
+    BREAKTHROUGH_DEATH_COUNT_PATTERN,
+    BREAKTHROUGH_DEATH_PCT_PATTERN,
+    PROCESSED_DATA_PREFIX,
+    PROCESSED_METADATA_KEY,
+    PROCESSED_EPI_DATA_KEY_TMPL,
+    PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
+)
+from exceptions import DependencyError
 
-class DependencyError(Exception):
-    pass
-
-
-BEYBLADE_S3_BUCKET = "beybla.de"
-
-## EPI DATA CONSTANTS ##
-EPI_DATA_URL = "https://doh.wa.gov/sites/default/files/legacy/Documents/1600/coronavirus/data-tables//EpiCurve_Count_Cases_Hospitalizations_Deaths.xlsx"
-EPI_PREFIX = "static/epi/wa/"
-EPI_DEATHS_WORKSHEET_NAME = "Deaths"  # Fragile... but so is working with xlsx data...
-EPI_COLUMNS = [
-    "Earliest Specimen Collection Date",
-    "County",
-    "Deaths",
-    "Deaths (7-Day Average)",
-]
-EPI_COLUMNS_NAME_MAP = {
-    "Earliest Specimen Collection Date": "date",
-    "County": "county",
-    "Deaths": "deaths",
-    "Deaths (7-Day Average)": "deaths_seven_day_average",
-}
-EPI_COUNTY_OF_INTEREST = "Statewide"
-EPI_DEATHS_FNAME_TMPL = "epi_deaths_data.{md5}.json"
-
-## BREAKTHROUGH DATA CONSTANTS ##
-BREAKTHROUGH_DATA_PREFIX = "static/reports/wa/"
-BREAKTHROUGH_REPORT_FNAME_TMPL = "{date}-420-339-VaccineBreakthroughReport.pdf"
-BREAKTHROUGH_DATA_URL = "https://doh.wa.gov/sites/default/files/2022-02/420-339-VaccineBreakthroughReport.pdf"
-BREAKTHROUGH_REPORT_DATE_PATTERN = re.compile(
-    r".*Washington State Department of Health\s?\s?([\w]+ [\d]{1,2}, [\d]{4}).*"
-)
-BREAKTHROUGH_DATE_PATTERN = re.compile(
-    r".*At a Glance \(\s?data from ([\w]+ [\d]{1,2}, [\d]{4})\s?-?\s?([\w]+ [\d]{1,2}, [\d]{4})\s?\).*"
-)
-BREAKTHROUGH_CASE_COUNT_PATTERN = re.compile(
-    r".*\s([\d,]+)\s+SARS-CoV-2\s?vaccine\s?breakthrough\s?cases\s?have\s?been\s?identified.*"
-)
-BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN = re.compile(
-    r".*\s([\d]{1,2})% were hospitalized.*"
-)
-BREAKTHROUGH_DEATH_COUNT_PATTERN = re.compile(
-    r".*\s([\d]+) people died of COVID-related illness.*"
-)
-BREAKTHROUGH_DEATH_PCT_PATTERN = re.compile(
-    r".*\s([\d\.]{1,3})% died of COVID-related illness.*"
-)
 
 def process_breakthrough_date(dstring):
     return int(time.mktime(datetime.strptime(dstring, '%B %d, %Y').timetuple()))
@@ -92,7 +69,7 @@ def refresh_epi_data():
             records.append({
                 "date": ts,
                 "deaths": row[column_map["deaths"]].value,
-                "deaths_seven_day_average": row[column_map["deaths_seven_day_average"]].value
+                "rolling_average": row[column_map["rolling_average"]].value
             })
 
     records_str = json.dumps(records).encode("utf-8")
@@ -153,7 +130,7 @@ def refresh_breakthrough_data():
     return processed_data[-1]["report_date"], processed_data
 
 
-def _process_breakthrough_data(breakthrough_pdf):
+def _process_breakthrough_report(breakthrough_pdf):
     records_md5 = hashlib.md5(breakthrough_pdf).hexdigest()
     pdfp = pypdf.PdfFileReader(BytesIO(breakthrough_pdf)) 
     text = ""
@@ -166,7 +143,6 @@ def _process_breakthrough_data(breakthrough_pdf):
     try:
         report_date_raw = BREAKTHROUGH_REPORT_DATE_PATTERN.match(stripped_text).groups()[0]
     except:
-        print(stripped_text)
         raise
 
     report_date, start_date, end_date = (
@@ -194,7 +170,7 @@ def _process_breakthrough_data(breakthrough_pdf):
     }
 
 
-def _upload_processed_data(data_key, report_data):
+def _upload_processed_report(report_data, data_key):
     client = boto.client("s3")
     report_json_str = json.dumps(report_data).encode("utf-8")
     record_md5 = base64.b64encode(hashlib.md5(report_json_str).digest()).decode("utf-8")
@@ -220,9 +196,9 @@ def _get_processed_report(report_key):
 
     resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=report_key)
     report = resp["Body"].read()
-    record = _process_breakthrough_data(report)
+    record = _process_breakthrough_report(report)
 
-    _upload_processed_data(json_key, record)
+    _upload_processed_report(record, json_key)
 
     return record
 
@@ -256,7 +232,7 @@ def _get_latest_breakthrough_data():
             f"Attempt to retrieve latest breakthrough report returned status code: {resp.status_code}"
         )
     # Let errors associated with parsing bubble up
-    return resp.content, _process_breakthrough_data(resp.content)
+    return resp.content, _process_breakthrough_report(resp.content)
 
 
 def _uplode_latest_breakthrough_report(latest_report, latest_data):
@@ -292,6 +268,118 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
     _upload_processed_data(report_json_key, latest_data)
 
 
+def _get_metadata():
+    client = boto.client("s3")
+    try:
+        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=PROCESSED_METADATA_KEY)
+        return json.loads(resp["Body"].read())
+    except ClientError as ex:
+        if not ex.response['Error']['Code'] == 'NoSuchKey':
+            raise
+
+    return {
+        "epi": {
+            "update_time": 0,
+            "url": None,
+        },
+        "breakthrough": {
+            "update_time": 0,
+            "url": None,
+        }
+    }
+
+
+def _upload_processed_data(data_str, data_key):
+    client = boto.client("s3")
+    data_upload_md5 = base64.b64encode(hashlib.md5(data_str).digest()).decode("utf-8")
+    client.put_object(
+        ACL="private",
+        Bucket=BEYBLADE_S3_BUCKET,
+        Key=data_key,
+        Body=BytesIO(data_str),
+        ContentMD5=data_upload_md5,
+        ContentType="application/json"
+    )
+
+
+def _process_epi_data(records):
+    cumulative = 0
+    for i in range(len(records)):
+        if i == 0:
+            cumulative = records[i].get("cumulative_deaths", 0)
+            records[i]["cumulative_deaths"] = cumulative + records[i]["deaths"]
+        else:
+            cumulative = records[i-1].get("cumulative_deaths", 0)
+            records[i]["cumulative_deaths"] = cumulative + records[i]["deaths"]
+
+    records_str = json.dumps(records).encode("utf-8")
+    records_key = PROCESSED_EPI_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
+    _upload_processed_data(records_str, records_key)
+    return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
+
+
+def _process_breakthrough_data(records):
+    remove_indices = []
+    for i in range(len(records)):
+        if i == 0 or i == len(records) - 1:
+            continue
+        if records[i]["end_date"] == records[i+1]["end_date"]:
+            remove_indices.append(i)
+
+    for i in sorted(remove_indices, reverse=True):
+        del records[i]
+
+    for i in range(len(records)):
+        if i == 0:
+            start_date, end_date = (
+                datetime.fromtimestamp(records[i]["start_date"]),
+                datetime.fromtimestamp(records[i]["end_date"]),
+            )
+            num_weeks = (end_date - start_date).days / 7
+            records[i]["rolling_average"] = records[i]["death_count"] / num_weeks
+            records[i]["cumulative_deaths"] = records[i]["death_count"]
+        else:
+            start_date, end_date = (
+                datetime.fromtimestamp(records[i-1]["end_date"]),
+                datetime.fromtimestamp(records[i]["end_date"]),
+            )
+            num_days = (end_date - start_date).days
+            deaths_delta = records[i]["death_count"] - records[i-1]["death_count"]
+            if deaths_delta < 0:
+                deaths_delta = 0
+            records[i]["rolling_average"] = deaths_delta / num_days
+            records[i]["cumulative_deaths"] = records[i]["death_count"]
+
+    records_str = json.dumps(records).encode("utf-8")
+    records_key = PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
+    _upload_processed_data(records_str, records_key)
+    return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
+
+
 def run():
+    metadata, updated = _get_metadata(), False
     records_update_time, records = refresh_epi_data()
+    if records_update_time > metadata["epi"]["update_time"]:
+        metadata["epi"]["url"] = _process_epi_data(records)
+        metadata["epi"]["update_time"] = records_update_time
+        updated = True
+
     breakthrough_update_time, breakthrough_records = refresh_breakthrough_data()
+    if breakthrough_update_time > metadata["breakthrough"]["update_time"]:
+        metadata["breakthrough"]["url"] = _process_breakthrough_data(breakthrough_records)
+        metadata["breakthrough"]["update_time"] = breakthrough_update_time
+        updated = True
+
+    if updated:
+        pprint(metadata)
+        client = boto.client("s3")
+        metadata_str = json.dumps(metadata).encode("utf-8")
+        metadata_upload_md5 = base64.b64encode(hashlib.md5(metadata_str).digest()).decode("utf-8")
+        client.put_object(
+            ACL="private",
+            Bucket=BEYBLADE_S3_BUCKET,
+            Key=PROCESSED_METADATA_KEY,
+            Body=BytesIO(metadata_str),
+            ContentMD5=metadata_upload_md5,
+            ContentType="application/json"
+        )
