@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import base64
 import boto3 as boto
 import hashlib
@@ -14,7 +14,7 @@ from datetime import datetime, tzinfo
 from pprint import pprint
 from io import BytesIO
 
-from constants import (
+from beyblade_lambda.constants import (
     BEYBLADE_S3_BUCKET,
     BEYBLADE_URL,
     EPI_DATA_URL,
@@ -38,7 +38,7 @@ from constants import (
     PROCESSED_EPI_DATA_KEY_TMPL,
     PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
 )
-from exceptions import DependencyError
+from beyblade_lambda.exceptions import DependencyError
 
 
 def process_breakthrough_date(dstring):
