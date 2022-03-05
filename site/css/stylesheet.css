@@ -1,0 +1,66 @@
+@font-face {
+    font-family: 'Beyblade Metal Fight';
+    src: url('../fonts/BeybladeMetalFightRegular.woff2') format('woff2'),
+        url('../fonts/BeybladeMetalFightRegular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+body {
+    font-family: 'Beyblade Metal Fight';
+    background-color: rgb(18,12,55);
+    color: white;
+}
+
+h1 {
+    font-weight: bold;
+    font-style: normal;
+    font-size: 4.5em;
+    color: rgb(219,46,25);
+}
+
+h2, .h2 {
+    font-weight: bold;
+    font-style: normal;
+    font-size: 2.5em;
+}
+
+.title {
+    width: 650px;
+    margin: auto;
+    font-size: 1em;
+    color: rgb(106,192,228);
+}
+
+.state {
+    width: 800px;
+    margin: auto;
+}
+
+.stats {
+    width: 77%;
+    margin: auto;
+}
+
+.stat {
+    height: 75px;
+    text-align: center;
+}
+
+.data-point {
+    height: 35px;
+    font-size: 1.5em;
+    color: rgb(219,46,25);
+}
+span.data-point {
+    font-size: 1em;
+}
+
+.graphs {
+	width: 875px;
+    margin: auto;
+}
+#cumulative-over-time {
+	background-color: white;
+}
