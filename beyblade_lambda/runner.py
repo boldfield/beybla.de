@@ -14,11 +14,15 @@ from datetime import datetime, tzinfo
 from pprint import pprint
 from io import BytesIO
 
-import beyblade_lambda.wa as wa
+try:
+    import beyblade_lambda.wa as wa
+except ModuleNotFoundError:
+    # To support running for local testing
+    import wa
 
 
-def main():
-    wa.run()
+def main(debug=False, force_refresh=False):
+    wa.run(debug=debug, force_refresh=force_refresh)
 
 
 def lambda_event(*args, **kwargs):
@@ -26,4 +30,4 @@ def lambda_event(*args, **kwargs):
 
 
 if __name__ == "__main__":
-    main()
+    main(debug=True, force_refresh=True)

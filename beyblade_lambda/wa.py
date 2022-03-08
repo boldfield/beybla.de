@@ -14,38 +14,46 @@ from datetime import datetime, tzinfo
 from pprint import pprint
 from io import BytesIO
 
-from beyblade_lambda.constants import (
-    BEYBLADE_S3_BUCKET,
-    BEYBLADE_URL,
-    EPI_DATA_URL,
-    EPI_PREFIX,
-    EPI_DEATHS_WORKSHEET_NAME,
-    EPI_COLUMNS,
-    EPI_COLUMNS_NAME_MAP,
-    EPI_COUNTY_OF_INTEREST,
-    EPI_DEATHS_FNAME_TMPL,
-    BREAKTHROUGH_DATA_PREFIX,
-    BREAKTHROUGH_REPORT_FNAME_TMPL,
-    BREAKTHROUGH_DATA_URL,
-    BREAKTHROUGH_REPORT_DATE_PATTERN,
-    BREAKTHROUGH_DATE_PATTERN,
-    BREAKTHROUGH_CASE_COUNT_PATTERN,
-    BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
-    BREAKTHROUGH_DEATH_COUNT_PATTERN,
-    BREAKTHROUGH_DEATH_PCT_PATTERN,
-    PROCESSED_DATA_PREFIX,
-    PROCESSED_METADATA_KEY,
-    PROCESSED_EPI_DATA_KEY_TMPL,
-    PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
-)
-from beyblade_lambda.exceptions import DependencyError
+try:
+    from beyblade_lambda.constants import (
+        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL,
+        EPI_DATA_URL, EPI_PREFIX, EPI_DEATHS_WORKSHEET_NAME,
+        EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
+        EPI_DEATHS_FNAME_TMPL, BREAKTHROUGH_DATA_PREFIX,
+        BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
+        BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
+        BREAKTHROUGH_CASE_COUNT_PATTERN,
+        BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
+        BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
+        PROCESSED_DATA_PREFIX, PROCESSED_METADATA_KEY,
+        PROCESSED_EPI_DATA_KEY_TMPL, PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
+    )
+    from beyblade_lambda.exceptions import DependencyError
+except ModuleNotFoundError:
+    # To support running for local testing
+    from constants import (
+        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL,
+        EPI_DATA_URL, EPI_PREFIX, EPI_DEATHS_WORKSHEET_NAME,
+        EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
+        EPI_DEATHS_FNAME_TMPL, BREAKTHROUGH_DATA_PREFIX,
+        BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
+        BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
+        BREAKTHROUGH_CASE_COUNT_PATTERN,
+        BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
+        BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
+        PROCESSED_DATA_PREFIX, PROCESSED_METADATA_KEY,
+        PROCESSED_EPI_DATA_KEY_TMPL, PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
+    )
+    from exceptions import DependencyError
 
 
 def process_breakthrough_date(dstring):
-    return int(time.mktime(datetime.strptime(dstring, '%B %d, %Y').timetuple()))
+    dt = datetime.strptime(dstring, '%B %d, %Y')
+    dt_tz = AMERICA_PACIFIC.localize(dt)
+    return int(time.mktime(dt_tz.timetuple()))
 
 
-def refresh_epi_data():
+def refresh_epi_data(debug=False):
     resp = requests.get(EPI_DATA_URL)
     xlsx_data = BytesIO(resp.content)
     xlsx = openpyxl.load_workbook(xlsx_data, True)
@@ -64,8 +72,8 @@ def refresh_epi_data():
                 if cell.value in EPI_COLUMNS:
                     column_map[EPI_COLUMNS_NAME_MAP[cell.value]] = i
         elif row[column_map["county"]].value == EPI_COUNTY_OF_INTEREST:
-            dt = row[column_map["date"]].value
-            ts = int(time.mktime(dt.timetuple()))
+            dt_tz = AMERICA_PACIFIC.localize(row[column_map["date"]].value)
+            ts = int(time.mktime(dt_tz.timetuple()))
             records.append({
                 "date": ts,
                 "deaths": row[column_map["deaths"]].value,
@@ -85,45 +93,50 @@ def refresh_epi_data():
     except ClientError as ex:
         if not ex.response['Error']['Code'] == 'NoSuchKey':
             raise
-        record_upload_md5 = base64.b64encode(hashlib.md5(records_str).digest()).decode("utf-8")
-        client.put_object(
-            ACL="private",
-            Bucket=BEYBLADE_S3_BUCKET,
-            Key=records_data_key,
-            Body=BytesIO(records_str),
-            ContentMD5=record_upload_md5,
-            ContentType="application/json"
-        )
+        if not debug:
+            record_upload_md5 = base64.b64encode(hashlib.md5(records_str).digest()).decode("utf-8")
+            client.put_object(
+                ACL="private",
+                Bucket=BEYBLADE_S3_BUCKET,
+                Key=records_data_key,
+                Body=BytesIO(records_str),
+                ContentMD5=record_upload_md5,
+                ContentType="application/json"
+            )
 
-        records_md5_key = f"{records_data_key}.md5"
-        records_md5_md5 = base64.b64encode(hashlib.md5(records_md5.encode("utf-8")).digest()).decode("utf-8")
-        client.put_object(
-            ACL="private",
-            Bucket=BEYBLADE_S3_BUCKET,
-            Key=records_md5_key,
-            Body=BytesIO(records_md5.encode("utf-8")),
-            ContentMD5=records_md5_md5,
-            ContentType="text/plain"
-        )
+            records_md5_key = f"{records_data_key}.md5"
+            records_md5_md5 = base64.b64encode(hashlib.md5(records_md5.encode("utf-8")).digest()).decode("utf-8")
+            client.put_object(
+                ACL="private",
+                Bucket=BEYBLADE_S3_BUCKET,
+                Key=records_md5_key,
+                Body=BytesIO(records_md5.encode("utf-8")),
+                ContentMD5=records_md5_md5,
+                ContentType="text/plain"
+            )
 
-        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
-        modified_dt = resp["LastModified"]
+            resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
+            modified_dt = resp["LastModified"]
 
-    records_update_time = int(time.mktime(modified_dt.timetuple()))
+    if modified_dt:
+        records_update_time = int(time.mktime(modified_dt.timetuple()))
+    else:
+        records_update_time = int(time.time())
 
 
     return records_update_time, records
 
 
-def refresh_breakthrough_data():
+def refresh_breakthrough_data(debug=False, force_refresh=False):
     # Get existing data
-    processed_data = _get_processed_breakthrough_data()
+    processed_data = _get_processed_breakthrough_data(debug=debug, force_refresh=force_refresh)
     processed_data = sorted(processed_data, key=lambda x: x["report_date"])
     processed_md5s = [r["report_md5"] for r in processed_data]
     # Get latest data
     latest_report, latest_data = _get_latest_breakthrough_data()
     if latest_data["report_md5"] not in processed_md5s:
-        _uplode_latest_breakthrough_report(latest_report, latest_data)
+        if not debug:
+            _uplode_latest_breakthrough_report(latest_report, latest_data)
         processed_data.append(latest_data)
         processed_md5s.append(latest_data["report_md5"])
 
@@ -184,26 +197,28 @@ def _upload_processed_report(report_data, data_key):
     )
 
 
-def _get_processed_report(report_key):
+def _get_processed_report(report_key, debug=False, force_refresh=False):
     json_key = report_key.replace("pdf", "json")
     client = boto.client("s3")
-    try:
-        resp_json = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=json_key)
-        return json.loads(resp_json["Body"].read())
-    except ClientError as ex:
-        if not ex.response['Error']['Code'] == 'NoSuchKey':
-            raise
+    if not force_refresh:
+        try:
+            resp_json = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=json_key)
+            return json.loads(resp_json["Body"].read())
+        except ClientError as ex:
+            if not ex.response['Error']['Code'] == 'NoSuchKey':
+                raise
 
     resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=report_key)
     report = resp["Body"].read()
     record = _process_breakthrough_report(report)
 
-    _upload_processed_report(record, json_key)
+    if not debug:
+        _upload_processed_report(record, json_key)
 
     return record
 
 
-def _get_processed_breakthrough_data():
+def _get_processed_breakthrough_data(debug=False, force_refresh=False):
     records, objs, last_key = [], [], None
     client = boto.client("s3")
     while True:
@@ -221,7 +236,7 @@ def _get_processed_breakthrough_data():
     for obj in objs:
         if not obj["Key"].endswith("pdf"):
             continue
-        records.append(_get_processed_report(obj["Key"]))
+        records.append(_get_processed_report(obj["Key"], debug=debug, force_refresh=force_refresh))
     return records
 
 
@@ -237,9 +252,9 @@ def _get_latest_breakthrough_data():
 
 def _uplode_latest_breakthrough_report(latest_report, latest_data):
     client = boto.client("s3")
-    dt = datetime.fromtimestamp(latest_data["report_date"])
+    dt_tz = datetime.fromtimestamp(latest_data["report_date"], AMERICA_PACIFIC)
     report_fname = BREAKTHROUGH_REPORT_FNAME_TMPL.format(
-        date=dt.strftime("%Y-%m-%d")
+        date=dt_tz.strftime("%Y-%m-%d")
     )
     report_key = f"{BREAKTHROUGH_DATA_PREFIX.rstrip('/')}/{report_fname}"
     report_md5 = base64.b64encode(hashlib.md5(latest_report).digest()).decode("utf-8")
@@ -302,7 +317,7 @@ def _upload_processed_data(data_str, data_key):
     )
 
 
-def _process_epi_data(records):
+def _process_epi_data(records, debug=False):
     cumulative = 0
     for i in range(len(records)):
         if i == 0:
@@ -314,11 +329,12 @@ def _process_epi_data(records):
 
     records_str = json.dumps(records).encode("utf-8")
     records_key = PROCESSED_EPI_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
-    _upload_processed_data(records_str, records_key)
+    if not debug:
+        _upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
 
 
-def _process_breakthrough_data(records):
+def _process_breakthrough_data(records, debug=False):
     remove_indices = []
     for i in range(len(records)):
         if i == 0 or i == len(records) - 1:
@@ -332,16 +348,16 @@ def _process_breakthrough_data(records):
     for i in range(len(records)):
         if i == 0:
             start_date, end_date = (
-                datetime.fromtimestamp(records[i]["start_date"]),
-                datetime.fromtimestamp(records[i]["end_date"]),
+                datetime.fromtimestamp(records[i]["start_date"], AMERICA_PACIFIC),
+                datetime.fromtimestamp(records[i]["end_date"], AMERICA_PACIFIC),
             )
             num_weeks = (end_date - start_date).days / 7
             records[i]["rolling_average"] = records[i]["death_count"] / num_weeks
             records[i]["cumulative_deaths"] = records[i]["death_count"]
         else:
             start_date, end_date = (
-                datetime.fromtimestamp(records[i-1]["end_date"]),
-                datetime.fromtimestamp(records[i]["end_date"]),
+                datetime.fromtimestamp(records[i-1]["end_date"], AMERICA_PACIFIC),
+                datetime.fromtimestamp(records[i]["end_date"], AMERICA_PACIFIC),
             )
             num_days = (end_date - start_date).days
             deaths_delta = records[i]["death_count"] - records[i-1]["death_count"]
@@ -352,26 +368,29 @@ def _process_breakthrough_data(records):
 
     records_str = json.dumps(records).encode("utf-8")
     records_key = PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
-    _upload_processed_data(records_str, records_key)
+    if not debug:
+        _upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
 
 
-def run():
+def run(debug=False, force_refresh=False):
     metadata, updated = _get_metadata(), False
-    records_update_time, records = refresh_epi_data()
+    records_update_time, records = refresh_epi_data(debug=debug)
     if records_update_time > metadata["epi"]["update_time"]:
-        metadata["epi"]["url"] = _process_epi_data(records)
+        metadata["epi"]["url"] = _process_epi_data(records, debug=debug)
         metadata["epi"]["update_time"] = records_update_time
         updated = True
 
-    breakthrough_update_time, breakthrough_records = refresh_breakthrough_data()
+    breakthrough_update_time, breakthrough_records = refresh_breakthrough_data(debug=debug, force_refresh=force_refresh)
     if breakthrough_update_time > metadata["breakthrough"]["update_time"]:
-        metadata["breakthrough"]["url"] = _process_breakthrough_data(breakthrough_records)
+        metadata["breakthrough"]["url"] = _process_breakthrough_data(breakthrough_records, debug=debug)
         metadata["breakthrough"]["update_time"] = breakthrough_update_time
         updated = True
+    if debug:
+        pprint(records[-25:])
+        pprint(breakthrough_records)
 
-    if updated:
-        pprint(metadata)
+    if updated and not debug:
         client = boto.client("s3")
         metadata_str = json.dumps(metadata).encode("utf-8")
         metadata_upload_md5 = base64.b64encode(hashlib.md5(metadata_str).digest()).decode("utf-8")
