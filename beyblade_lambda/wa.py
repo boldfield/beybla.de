@@ -271,7 +271,8 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
     )
 
     report_json_key = report_key.replace("pdf", "json")
-    _upload_processed_data(report_json_key, latest_data)
+    report_json_str = json.dumps(latest_data).encode("utf-8")
+    _upload_processed_data(report_json_key, report_json_str)
 
 
 def _get_metadata():
