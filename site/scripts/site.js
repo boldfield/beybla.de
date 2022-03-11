@@ -39,16 +39,22 @@ $(document).ready(function(){
 
         var epi_plot_data = [];
         var breakthrough_plot_data = [];
-        for (var i = 0; i < epi_data.length; i++) {
-          epi_plot_data.push({
-            x: moment.unix(epi_data[i].date).format("YYYY-MM-DD"),
-            y: epi_data[i].cumulative_deaths,
-          });
-        };
+        var last_breakthrough_ts = 0;
+
         for (var i = 0; i < breakthrough_data.length; i++) {
           breakthrough_plot_data.push({
             x: moment.unix(breakthrough_data[i].end_date).format("YYYY-MM-DD"),
             y: breakthrough_data[i].cumulative_deaths,
+          });
+          last_breakthrough_ts = breakthrough_data[i].end_date;
+        };
+        for (var i = 0; i < epi_data.length; i++) {
+          if (epi_data[i].date > last_breakthrough_ts) {
+            continue;
+          }
+          epi_plot_data.push({
+            x: moment.unix(epi_data[i].date).format("YYYY-MM-DD"),
+            y: epi_data[i].cumulative_deaths,
           });
         };
 
