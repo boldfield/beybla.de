@@ -89,7 +89,6 @@ def refresh_epi_data(debug=False):
     try:
         # check to see if this key exists
         client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
-        modified_ts = records[-1]["date"]
     except ClientError as ex:
         if not ex.response['Error']['Code'] == 'NoSuchKey':
             raise
@@ -272,7 +271,7 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
 
     report_json_key = report_key.replace("pdf", "json")
     report_json_str = json.dumps(latest_data).encode("utf-8")
-    _upload_processed_data(report_json_key, report_json_str)
+    _upload_processed_data(report_json_str, report_json_key)
 
 
 def _get_metadata():
