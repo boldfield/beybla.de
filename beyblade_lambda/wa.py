@@ -85,11 +85,11 @@ def refresh_epi_data(debug=False):
     records_fname = EPI_DEATHS_FNAME_TMPL.format(md5=records_md5)
     records_data_key = f"{EPI_PREFIX.strip('/')}/{records_fname}"
 
-    modified_dt = None
     client = boto.client("s3")
     try:
-        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
-        modified_dt = resp["LastModified"]
+        # check to see if this key exists
+        client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
+        modified_ts = records[-1]["date"]
     except ClientError as ex:
         if not ex.response['Error']['Code'] == 'NoSuchKey':
             raise
@@ -115,16 +115,7 @@ def refresh_epi_data(debug=False):
                 ContentType="text/plain"
             )
 
-            resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=records_data_key)
-            modified_dt = resp["LastModified"]
-
-    if modified_dt:
-        records_update_time = int(time.mktime(modified_dt.timetuple()))
-    else:
-        records_update_time = int(time.time())
-
-
-    return records_update_time, records
+    return records[-1]["date"], records
 
 
 def refresh_breakthrough_data(debug=False, force_refresh=False):
