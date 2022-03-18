@@ -15,36 +15,41 @@ from pprint import pprint
 from io import BytesIO
 
 try:
+    from beyblade_lambda.config import StorageConfig
     from beyblade_lambda.constants import (
-        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL,
-        EPI_DATA_URL, EPI_PREFIX, EPI_DEATHS_WORKSHEET_NAME,
+        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL
+    )
+    from beyblade_lambda.wa_constants import (
+        EPI_DATA_URL, EPI_DEATHS_WORKSHEET_NAME,
         EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
-        EPI_DEATHS_FNAME_TMPL, BREAKTHROUGH_DATA_PREFIX,
+        EPI_DEATHS_FNAME_TMPL,
         BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
         BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
         BREAKTHROUGH_CASE_COUNT_PATTERN,
         BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
         BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
-        PROCESSED_DATA_PREFIX, PROCESSED_METADATA_KEY,
-        PROCESSED_EPI_DATA_KEY_TMPL, PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
     )
     from beyblade_lambda.exceptions import DependencyError
 except ModuleNotFoundError:
     # To support running for local testing
+    from config import StorageConfig
     from constants import (
-        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL,
-        EPI_DATA_URL, EPI_PREFIX, EPI_DEATHS_WORKSHEET_NAME,
+        AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL
+    )
+    from wa_constants import (
+        EPI_DATA_URL, EPI_DEATHS_WORKSHEET_NAME,
         EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
-        EPI_DEATHS_FNAME_TMPL, BREAKTHROUGH_DATA_PREFIX,
+        EPI_DEATHS_FNAME_TMPL,
         BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
         BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
         BREAKTHROUGH_CASE_COUNT_PATTERN,
         BREAKTHROUGH_HOSPITALIZED_PCT_PATTERN,
         BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
-        PROCESSED_DATA_PREFIX, PROCESSED_METADATA_KEY,
-        PROCESSED_EPI_DATA_KEY_TMPL, PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL,
     )
     from exceptions import DependencyError
+
+
+CONFIG = StorageConfig("wa")
 
 
 def process_breakthrough_date(dstring):
@@ -83,7 +88,7 @@ def refresh_epi_data(debug=False):
     records_str = json.dumps(records).encode("utf-8")
     records_md5 = hashlib.md5(records_str).hexdigest()
     records_fname = EPI_DEATHS_FNAME_TMPL.format(md5=records_md5)
-    records_data_key = f"{EPI_PREFIX.strip('/')}/{records_fname}"
+    records_data_key = f"{CONFIG.get_epi_data_prefix().strip('/')}/{records_fname}"
 
     client = boto.client("s3")
     try:
@@ -214,7 +219,7 @@ def _get_processed_breakthrough_data(debug=False, force_refresh=False):
     while True:
         resp = client.list_objects(
             Bucket=BEYBLADE_S3_BUCKET,
-            Prefix=BREAKTHROUGH_DATA_PREFIX,
+            Prefix=CONFIG.get_breakthrough_data_prefix(),
             Marker=last_key or ""
         )
         objs.extend(resp["Contents"])
@@ -246,7 +251,7 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
     report_fname = BREAKTHROUGH_REPORT_FNAME_TMPL.format(
         date=dt_tz.strftime("%Y-%m-%d")
     )
-    report_key = f"{BREAKTHROUGH_DATA_PREFIX.rstrip('/')}/{report_fname}"
+    report_key = f"{CONFIG.get_breakthrough_data_prefix().rstrip('/')}/{report_fname}"
     report_md5 = base64.b64encode(hashlib.md5(latest_report).digest()).decode("utf-8")
     client.put_object(
         ACL="private",
@@ -277,7 +282,7 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
 def _get_metadata():
     client = boto.client("s3")
     try:
-        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=PROCESSED_METADATA_KEY)
+        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=CONFIG.get_processed_metadata_key())
         return json.loads(resp["Body"].read())
     except ClientError as ex:
         if not ex.response['Error']['Code'] == 'NoSuchKey':
@@ -319,7 +324,7 @@ def _process_epi_data(records, debug=False):
             records[i]["cumulative_deaths"] = cumulative + records[i]["deaths"]
 
     records_str = json.dumps(records).encode("utf-8")
-    records_key = PROCESSED_EPI_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
+    records_key = CONFIG.get_processed_epi_data_key(hashlib.md5(records_str).hexdigest())
     if not debug:
         _upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
@@ -358,7 +363,7 @@ def _process_breakthrough_data(records, debug=False):
             records[i]["cumulative_deaths"] = records[i]["death_count"]
 
     records_str = json.dumps(records).encode("utf-8")
-    records_key = PROCESSED_BREAKTHROUGH_DATA_KEY_TMPL.format(md5=hashlib.md5(records_str).hexdigest())
+    records_key = CONFIG.get_processed_breakthrough_data_key(hashlib.md5(records_str).hexdigest())
     if not debug:
         _upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
@@ -388,7 +393,7 @@ def run(debug=False, force_refresh=False):
         client.put_object(
             ACL="private",
             Bucket=BEYBLADE_S3_BUCKET,
-            Key=PROCESSED_METADATA_KEY,
+            Key=CONFIG.get_processed_metadata_key(),
             Body=BytesIO(metadata_str),
             ContentMD5=metadata_upload_md5,
             ContentType="application/json"
