@@ -15,13 +15,16 @@ from pprint import pprint
 from io import BytesIO
 
 try:
+    import beyblade_lambda.ca as wa
     import beyblade_lambda.wa as wa
 except ModuleNotFoundError:
     # To support running for local testing
+    import ca
     import wa
 
 
 def main(debug=False, force_refresh=False):
+    ca.run(debug=debug, force_refresh=force_refresh)
     wa.run(debug=debug, force_refresh=force_refresh)
 
 

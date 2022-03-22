@@ -21,7 +21,7 @@ try:
     )
     from beyblade_lambda.wa_constants import (
         EPI_DATA_URL, EPI_DEATHS_WORKSHEET_NAME,
-        EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
+        EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
         EPI_DEATHS_FNAME_TMPL,
         BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
         BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
@@ -38,7 +38,7 @@ except ModuleNotFoundError:
     )
     from wa_constants import (
         EPI_DATA_URL, EPI_DEATHS_WORKSHEET_NAME,
-        EPI_COLUMNS, EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
+        EPI_COLUMNS_NAME_MAP, EPI_COUNTY_OF_INTEREST,
         EPI_DEATHS_FNAME_TMPL,
         BREAKTHROUGH_REPORT_FNAME_TMPL, BREAKTHROUGH_DATA_URL,
         BREAKTHROUGH_REPORT_DATE_PATTERN, BREAKTHROUGH_DATE_PATTERN,
@@ -74,7 +74,7 @@ def refresh_epi_data(debug=False):
     for row in deaths_worksheet.rows:
         if not column_map:
             for i, cell in enumerate(row):
-                if cell.value in EPI_COLUMNS:
+                if cell.value in EPI_COLUMNS_NAME_MAP:
                     column_map[EPI_COLUMNS_NAME_MAP[cell.value]] = i
         elif row[column_map["county"]].value == EPI_COUNTY_OF_INTEREST:
             dt_tz = AMERICA_PACIFIC.localize(row[column_map["date"]].value)
