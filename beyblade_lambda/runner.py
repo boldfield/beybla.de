@@ -15,7 +15,7 @@ from pprint import pprint
 from io import BytesIO
 
 try:
-    import beyblade_lambda.ca as wa
+    import beyblade_lambda.ca as ca
     import beyblade_lambda.wa as wa
 except ModuleNotFoundError:
     # To support running for local testing
