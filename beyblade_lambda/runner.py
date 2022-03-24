@@ -33,4 +33,4 @@ def lambda_event(*args, **kwargs):
 
 
 if __name__ == "__main__":
-    main(debug=True, force_refresh=True)
+    main(debug=False, force_refresh=True)

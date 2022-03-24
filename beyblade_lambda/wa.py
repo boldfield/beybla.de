@@ -30,6 +30,7 @@ try:
         BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
     )
     from beyblade_lambda.exceptions import DependencyError
+    from beyblade_lambda.lib import upload_processed_data, upload_metadata, invalidate_cloudfront_paths
 except ModuleNotFoundError:
     # To support running for local testing
     from config import StorageConfig
@@ -47,6 +48,7 @@ except ModuleNotFoundError:
         BREAKTHROUGH_DEATH_COUNT_PATTERN, BREAKTHROUGH_DEATH_PCT_PATTERN,
     )
     from exceptions import DependencyError
+    from lib import upload_processed_data, upload_metadata, invalidate_cloudfront_paths
 
 
 CONFIG = StorageConfig("wa")
@@ -276,7 +278,7 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
 
     report_json_key = report_key.replace("pdf", "json")
     report_json_str = json.dumps(latest_data).encode("utf-8")
-    _upload_processed_data(report_json_str, report_json_key)
+    upload_processed_data(report_json_str, report_json_key)
 
 
 def _get_metadata():
@@ -300,19 +302,6 @@ def _get_metadata():
     }
 
 
-def _upload_processed_data(data_str, data_key):
-    client = boto.client("s3")
-    data_upload_md5 = base64.b64encode(hashlib.md5(data_str).digest()).decode("utf-8")
-    client.put_object(
-        ACL="private",
-        Bucket=BEYBLADE_S3_BUCKET,
-        Key=data_key,
-        Body=BytesIO(data_str),
-        ContentMD5=data_upload_md5,
-        ContentType="application/json"
-    )
-
-
 def _process_epi_data(records, debug=False):
     cumulative = 0
     for i in range(len(records)):
@@ -326,7 +315,7 @@ def _process_epi_data(records, debug=False):
     records_str = json.dumps(records).encode("utf-8")
     records_key = CONFIG.get_processed_epi_data_key(hashlib.md5(records_str).hexdigest())
     if not debug:
-        _upload_processed_data(records_str, records_key)
+        upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
 
 
@@ -365,7 +354,7 @@ def _process_breakthrough_data(records, debug=False):
     records_str = json.dumps(records).encode("utf-8")
     records_key = CONFIG.get_processed_breakthrough_data_key(hashlib.md5(records_str).hexdigest())
     if not debug:
-        _upload_processed_data(records_str, records_key)
+        upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
 
 
@@ -385,16 +374,6 @@ def run(debug=False, force_refresh=False):
     if debug:
         pprint(records[-25:])
         pprint(breakthrough_records)
-
-    if updated and not debug:
-        client = boto.client("s3")
-        metadata_str = json.dumps(metadata).encode("utf-8")
-        metadata_upload_md5 = base64.b64encode(hashlib.md5(metadata_str).digest()).decode("utf-8")
-        client.put_object(
-            ACL="private",
-            Bucket=BEYBLADE_S3_BUCKET,
-            Key=CONFIG.get_processed_metadata_key(),
-            Body=BytesIO(metadata_str),
-            ContentMD5=metadata_upload_md5,
-            ContentType="application/json"
-        )
+    elif updated:
+        upload_metadata(metadata, CONFIG)
+        invalidate_cloudfront_paths([metadata])

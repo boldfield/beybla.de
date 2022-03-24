@@ -22,12 +22,14 @@ try:
     from beyblade_lambda.constants import (
         AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL
     )
+    from beyblade_lambda.lib import upload_processed_data, upload_metadata, invalidate_cloudfront_paths
 except ModuleNotFoundError:
     from ca_constants import BREAKTHROUGH_DATA_URL, BREAKTHROUGH_COLUMNS, EPI_AREA_OF_INTEREST, EPI_COLUMNS, EPI_DATA_URL
     from config import StorageConfig
     from constants import (
         AMERICA_PACIFIC, BEYBLADE_S3_BUCKET, BEYBLADE_URL
     )
+    from lib import upload_processed_data, upload_metadata, invalidate_cloudfront_paths
 
 CONFIG = StorageConfig("ca")
 
@@ -104,6 +106,38 @@ def refresh_epi_data(debug=False):
     return records[-1]["date"], records
 
 
+def _process_epi_data(records, debug=False):
+    cumulative = 0
+    for i in range(len(records)):
+        if i == 0:
+            records[i]["cumulative_deaths"] = records[i]["deaths"]
+        else:
+            cumulative = records[i-1].get("cumulative_deaths", 0)
+            records[i]["cumulative_deaths"] = cumulative + records[i]["deaths"]
+
+    records_str = json.dumps(records).encode("utf-8")
+    records_key = CONFIG.get_processed_epi_data_key(hashlib.md5(records_str).hexdigest())
+    if not debug:
+        upload_processed_data(records_str, records_key)
+    return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
+
+
+def _process_breakthrough_data(records, debug=False):
+    cumulative = 0
+    for i in range(len(records)):
+        if i == 0:
+            records[i]["cumulative_deaths"] = records[i]["deaths"]
+        else:
+            cumulative = records[i-1].get("cumulative_deaths", 0)
+            records[i]["cumulative_deaths"] = cumulative + records[i]["deaths"]
+
+    records_str = json.dumps(records).encode("utf-8")
+    records_key = CONFIG.get_processed_breakthrough_data_key(hashlib.md5(records_str).hexdigest())
+    if not debug:
+        upload_processed_data(records_str, records_key)
+    return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
+
+
 def _get_metadata():
     client = boto.client("s3")
     try:
@@ -129,8 +163,20 @@ def run(debug=False, force_refresh=False):
     metadata, updated = _get_metadata(), False
 
     records_update_time, records = refresh_epi_data(debug=debug)
+    if records_update_time > metadata["epi"]["update_time"]:
+        metadata["epi"]["url"] = _process_epi_data(records, debug=debug)
+        metadata["epi"]["update_time"] = records_update_time
+        updated = True
+
     breakthrough_update_time, breakthrough_records = refresh_breakthrough_data(debug=debug, force_refresh=force_refresh)
+    if breakthrough_update_time > metadata["breakthrough"]["update_time"]:
+        metadata["breakthrough"]["url"] = _process_breakthrough_data(breakthrough_records, debug=debug)
+        metadata["breakthrough"]["update_time"] = breakthrough_update_time
+        updated = True
 
     if debug:
         pprint(records)
         pprint(breakthrough_records)
+    elif updated:
+        upload_metadata(metadata, CONFIG)
+        invalidate_cloudfront_paths([metadata])
