@@ -282,27 +282,6 @@ def _uplode_latest_breakthrough_report(latest_report, latest_data):
     upload_processed_data(report_json_str, report_json_key)
 
 
-def _get_metadata():
-    client = boto.client("s3")
-    try:
-        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=CONFIG.get_processed_metadata_key())
-        return json.loads(resp["Body"].read())
-    except ClientError as ex:
-        if not ex.response['Error']['Code'] == 'NoSuchKey':
-            raise
-
-    return {
-        "epi": {
-            "update_time": 0,
-            "url": None,
-        },
-        "breakthrough": {
-            "update_time": 0,
-            "url": None,
-        }
-    }
-
-
 def _process_epi_data(records, debug=False):
     cumulative = 0
     for i in range(len(records)):
@@ -363,6 +342,32 @@ def _process_breakthrough_data(records, debug=False):
     if not debug:
         upload_processed_data(records_str, records_key)
     return f"{BEYBLADE_URL.rstrip('/')}/{records_key}"
+
+
+def _get_metadata():
+    client = boto.client("s3")
+    try:
+        resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=CONFIG.get_processed_metadata_key())
+        metadata =  json.loads(resp["Body"].read())
+        metadata["state_label"] = "Washington State"
+        metadata["human_label"] = "Washingtonians"
+        return metadata
+    except ClientError as ex:
+        if not ex.response['Error']['Code'] == 'NoSuchKey':
+            raise
+
+    return {
+        "epi": {
+            "update_time": 0,
+            "url": None,
+        },
+        "breakthrough": {
+            "update_time": 0,
+            "url": None,
+        },
+        "human_label": "Washingtonians",
+        "state_label": "Washington State"
+    }
 
 
 def run(debug=False, force_refresh=False):

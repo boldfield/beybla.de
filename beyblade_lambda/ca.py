@@ -142,7 +142,10 @@ def _get_metadata():
     client = boto.client("s3")
     try:
         resp = client.get_object(Bucket=BEYBLADE_S3_BUCKET, Key=CONFIG.get_processed_metadata_key())
-        return json.loads(resp["Body"].read())
+        metadata = json.loads(resp["Body"].read())
+        metadata["state_label"] = "California"
+        metadata["human_label"] = "Californians"
+        return metadata
     except ClientError as ex:
         if not ex.response['Error']['Code'] == 'NoSuchKey':
             raise
@@ -155,7 +158,9 @@ def _get_metadata():
         "breakthrough": {
             "update_time": 0,
             "url": None,
-        }
+        },
+        "human_label": "Californians",
+        "state_label": "California","
     }
 
 
