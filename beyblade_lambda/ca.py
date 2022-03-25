@@ -160,7 +160,7 @@ def _get_metadata():
             "url": None,
         },
         "human_label": "Californians",
-        "state_label": "California","
+        "state_label": "California"
     }
 
 
