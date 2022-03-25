@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from datetime import datetime, tzinfo
 from pprint import pprint
 from io import BytesIO
+from urllib.parse import urlparse
 
 try:
     from beyblade_lambda.config import StorageConfig
@@ -351,6 +352,12 @@ def _process_breakthrough_data(records, debug=False):
             records[i]["rolling_average"] = deaths_delta / num_days
             records[i]["cumulative_deaths"] = records[i]["death_count"]
 
+        # Moving to consistent object model across states
+        records[i]["date"] = records[i]["end_date"]
+        #del records[i]["report_date"] = records[i]["end_date"]
+        #del records[i]["start_date"] = records[i]["end_date"]
+        #del records[i]["end_date"] = records[i]["end_date"]
+
     records_str = json.dumps(records).encode("utf-8")
     records_key = CONFIG.get_processed_breakthrough_data_key(hashlib.md5(records_str).hexdigest())
     if not debug:
@@ -376,4 +383,5 @@ def run(debug=False, force_refresh=False):
         pprint(breakthrough_records)
     elif updated:
         upload_metadata(metadata, CONFIG)
-        invalidate_cloudfront_paths([metadata])
+        paths = [urlparse(v["url"]).path for v in metadata.values()]
+        invalidate_cloudfront_paths(paths)

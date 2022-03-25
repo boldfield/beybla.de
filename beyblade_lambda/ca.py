@@ -179,4 +179,5 @@ def run(debug=False, force_refresh=False):
         pprint(breakthrough_records)
     elif updated:
         upload_metadata(metadata, CONFIG)
-        invalidate_cloudfront_paths([metadata])
+        paths = [urlparse(v["url"]).path for v in metadata.values()]
+        invalidate_cloudfront_paths(paths)
