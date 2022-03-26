@@ -164,5 +164,8 @@ $(document).ready(function(){
   if (location.hash != "" && $.BEYBLADE.supportedStates.includes(location.hash.substr(1).toUpperCase())) {
     var state = location.hash.substr(1).toLowerCase();
     $.BEYBLADE.fetch_state_data(state);
+  } else {
+    $.BEYBLADE.fetch_state_data("WA");
   }
+
 });
