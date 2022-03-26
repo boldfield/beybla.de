@@ -2,6 +2,7 @@ import base64
 import boto3 as boto
 import hashlib
 import json
+import time
 
 from io import BytesIO
 
@@ -47,6 +48,7 @@ def invalidate_cloudfront_paths(paths):
             "Paths": {
                 "Quantity": len(paths),
                 "Items": paths
-            }
+            },
+            "CallerReference": str(time.time()),
         }
     )

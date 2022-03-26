@@ -9,4 +9,5 @@ BEYBLADE_S3_BUCKET = "beybla.de"
 BEYBLADE_URL = "https://beybla.de"
 
 # meh... it's not a password.
-CLOUDFRONT_DISTRIBUTION = "E2EBFTQDUVZGEJ"
+
+CLOUDFRONT_DISTRIBUTION = "E28YRVB5CTBVQT"

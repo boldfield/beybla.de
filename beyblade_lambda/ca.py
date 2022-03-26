@@ -168,13 +168,13 @@ def run(debug=False, force_refresh=False):
     metadata, updated = _get_metadata(), False
 
     records_update_time, records = refresh_epi_data(debug=debug)
-    if records_update_time > metadata["epi"]["update_time"]:
+    if records_update_time > metadata["epi"]["update_time"] or (force_refresh and not debug):
         metadata["epi"]["url"] = _process_epi_data(records, debug=debug)
         metadata["epi"]["update_time"] = records_update_time
         updated = True
 
     breakthrough_update_time, breakthrough_records = refresh_breakthrough_data(debug=debug, force_refresh=force_refresh)
-    if breakthrough_update_time > metadata["breakthrough"]["update_time"]:
+    if breakthrough_update_time > metadata["breakthrough"]["update_time"] or (force_refresh and not debug):
         metadata["breakthrough"]["url"] = _process_breakthrough_data(breakthrough_records, debug=debug)
         metadata["breakthrough"]["update_time"] = breakthrough_update_time
         updated = True
@@ -184,5 +184,4 @@ def run(debug=False, force_refresh=False):
         pprint(breakthrough_records)
     elif updated:
         upload_metadata(metadata, CONFIG)
-        paths = [urlparse(v["url"]).path for v in metadata.values()]
-        invalidate_cloudfront_paths(paths)
+        invalidate_cloudfront_paths(["/" + CONFIG.get_processed_metadata_key()])

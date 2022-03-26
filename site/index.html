@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>beybla.de: Washington State</title>
+
+  <link rel="preload" href="fonts/BeybladeMetalFightRegular.woff2" as="font" type="font/woff2">
+  <link rel="stylesheet" href="css/stylesheet.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.1.4/raphael-min.js" integrity="sha512-19H09L/0GZE4rB7Ez/T8fszFZ36ze4Y2afznPe1tOc5KXDUL+4MtY8yPvF9pcotsGAiUbxudGu8jwHPMOYwLmQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/us-map/1.0.1/jquery.usmap.min.js" integrity="sha512-84K7p/J13bQ9cZo5jQ0XtGHfq8csnRl3gb19glfw+ZGuCTFcspY7OVuywjuYSI9NBGsbdyPaVUW1opr+FhR+nw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js" integrity="sha512-uto9mlQzrs59VwILcLiRYeLKPPbS/bT71da/OEBYEwcdNUk8jYIy+D176RYoop1Da+f9mvkYrmj5MCLZWEtQuA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script src="//cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src='//cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js'></script>
+  <script src="//cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="scripts/newsite.js"></script>
+
+<!--
+                        ...            ..                            .          .   ...................... ..  . ...                               ......
+                     .                    ..                                   ............................. .. .                          .,,,.....         .....          ..
+                    .       &@@@@@@@@                                    ... .... ****//((*........ . ...   . ,,,,,,,,,,,,,,,,.                                               .
+                    .     ********@@.      *%%%%%%%%%%%%%%#%   /////**((/(//...,*******,@@..//(/(///(((((, *******************,#@@@            .///////(((##(/     %&@@@@&    .
+                    .     .******#@&     ,***************(@&**************@@  ../******@@*************,@@. ,********************(@@*******@@(***************,@@@,*****,@@     .
+                     .     .****,@@        ,************,##,*************((   .  ******@@*************/(.     ****,@@     .****.@@ ******,@@.********,*******(@@*****,@@      .
+                    .      *****@@.        ******@@*          ******@@/  .      ,****,@@   ,*****@@*         *****&@#(@@#*****,@@   ****,@@  *****,@@   ****,@@.****,@@      .
+                    .     *****%@%        ,*********.@@      ,*****/@@          *****@@/   *****(@&         ******&**********,@&   *****@@(  ****,%/.//,****&@ *****@@.     .
+                   .     ,****,@@         ******,***         *****,@@          *****/@@   *****,@@         .****,@/*******,,      ,*****@@  *****%.*******.   *****%@*     .
+                  .      *****@@@%%%%%%% *****,@@@@@@@@@    ******@@.         ,****,@@   ,****,@@          *****@@,******@@@      ****,@@  *****,@@            @@@@@@     .
+                  .     *************(@&,************&@#  *******%@&          *****@@* .******@@(         *****(@@.******,@@&    *****@@/  *****@@.         .*****@@,     .
+                  .    *************,   ************,     *******            *****,    ******,           ,****,@@  *******..    ,****,    *****.,.          *****..      .
+                  .                                                    ..                                *****@@                                      ,.                .
+                   ..                                              ...   .                      ...     ,*,                                       ...   ..          ...
+                                                                                                   .              ..
+                                                                                                     ..........
+-->
+</head>
+
+  <body>
+    <header>
+      <div class="banner">
+        <div class="title">
+          <p><span class="h2">BEYBLA.DE</span><br>documenting the human toll of the failing US response to COVID-19</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+      <div id="map"></div>
+      <div class="state"><h1><span class="state-label">washington state</span></h1></div>
+      <div class="data">
+        <div class="stats">
+          <div class="stat">
+            <div class="data-point total-data-point">00,000</div>
+            <span class="human-label"></span> have died as of <span class="total-as-of-date">0000-00-00</span>, <span class="data-point total-data-point-last-thirty">00,000</span> in the previous 30 days.
+          </div>
+
+          <div class="stat">
+            <div class="data-point breakthrough-data-point">0,000</div>
+            fully vaccinated <span class="human-label"></span> have died as of <span class="breakthrough-as-of-date">0000-00-00</span>, <span class="data-point breakthrough-data-point-last-thirty">00,000</span> in the previous 30 days.
+          </div>
+
+          <div class="stat">
+            <div class="data-point breakthrough-percentage">00.0%</div>
+            of all <span class="human-label"></span> who have died have been fully vaccinated.
+          </div>
+        </div>
+        <div class="graphs">
+          <canvas id="cumulative-over-time"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+    </footer>
+  </body>
+</html>

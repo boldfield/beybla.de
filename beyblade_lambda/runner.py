@@ -24,6 +24,7 @@ except ModuleNotFoundError:
 
 
 def main(debug=False, force_refresh=False):
+    # TODO: convert to asyncio
     ca.run(debug=debug, force_refresh=force_refresh)
     wa.run(debug=debug, force_refresh=force_refresh)
 
@@ -33,4 +34,4 @@ def lambda_event(*args, **kwargs):
 
 
 if __name__ == "__main__":
-    main(debug=False, force_refresh=True)
+    main(debug=True, force_refresh=False)
