@@ -36,6 +36,7 @@ h2, .h2 {
 .state {
     width: 800px;
     margin: auto;
+    text-align: center;
 }
 
 .stats {
@@ -64,3 +65,9 @@ span.data-point {
 #cumulative-over-time {
 	background-color: white;
 }
+
+#map {
+    height: 300px;
+    width: 500px;
+    padding-top: 1.5em;
+    margin: auto;
