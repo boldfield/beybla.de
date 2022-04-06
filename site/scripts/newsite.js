@@ -42,7 +42,7 @@ $.BEYBLADE = {
     var state = this.selectedState;
     location.hash = "#" + state;
     if (location.host == "baybla.de") {
-      mixpanel.track('load-' + state);
+      this.mixpanel.track('load-' + state);
     }
 
     $(".state-label").text(this.metadata[state]["stateLabel"]);
