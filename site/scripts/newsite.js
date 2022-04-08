@@ -41,7 +41,7 @@ $.BEYBLADE = {
   refreshDisplay: function() {
     var state = this.selectedState;
     location.hash = "#" + state;
-    if (location.host == "baybla.de") {
+    if (!!this.mixpanel) {
       this.mixpanel.track('load-' + state);
     }
 
@@ -162,7 +162,9 @@ $(document).ready(function(){
     },
     click: function(event, data) {
       var state = data.name.toLowerCase();
-      $.BEYBLADE.fetchStateData(state);
+      if ($.BEYBLADE.supportedStates.includes(state.toUpperCase())) {
+        $.BEYBLADE.fetchStateData(state);
+      }
     }
   });
 
