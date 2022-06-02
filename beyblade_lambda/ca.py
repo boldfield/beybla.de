@@ -54,9 +54,10 @@ def refresh_breakthrough_data(debug=False, force_refresh=False):
                 "deaths": int(row[column_map["vaccinated_deaths"]]) + int(row[column_map["boosted_deaths"]]),
                 "rolling_average": 0
             })
-            if len(records) > 7:
-                records[-1]["rolling_average"] = statistics.mean([x["deaths"] for x in records[-7:]])
 
+    records = sorted(records, key=lambda x: x["date"], reverse=False)
+    for i in range(7, len(records)):
+        records[i]["rolling_average"] = statistics.mean([x["deaths"] for x in records[i-7:i]])
     return records[-1]["date"], records
 
 
@@ -100,6 +101,7 @@ def refresh_epi_data(debug=False):
     else:
         records[0]["date"] = records[1]["date"] - 24 * 3600
 
+    records = sorted(records, key=lambda x: x["date"], reverse=True)
     for i in range(7, len(records)):
         records[i]["rolling_average"] = statistics.mean([x["deaths"] for x in records[i-7:i]])
 
@@ -180,7 +182,7 @@ def run(debug=False, force_refresh=False):
         updated = True
 
     if debug:
-        pprint(records)
+        #pprint(records)
         pprint(breakthrough_records)
     elif updated:
         upload_metadata(metadata, CONFIG)

@@ -15,18 +15,18 @@ from pprint import pprint
 from io import BytesIO
 
 try:
-    import beyblade_lambda.ca as ca
-    import beyblade_lambda.wa as wa
+    import beyblade_lambda.ca as cali
+    import beyblade_lambda.wa as wash
 except ModuleNotFoundError:
     # To support running for local testing
-    import ca
-    import wa
+    import ca as cali
+    import wa as wash
 
 
 def main(debug=False, force_refresh=False):
     # TODO: convert to asyncio
-    ca.run(debug=debug, force_refresh=force_refresh)
-    wa.run(debug=debug, force_refresh=force_refresh)
+    cali.run(debug=debug, force_refresh=force_refresh)
+    wash.run(debug=debug, force_refresh=force_refresh)
 
 
 def lambda_event(*args, **kwargs):
